@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Data.SqlClient;
 
 namespace IAViewer.DB
 {
@@ -12,9 +13,11 @@ namespace IAViewer.DB
         private static String _databaseName = Database.DatabaseTypes.SQL_DATABASE.ToString();
         public static IDatabase _database = new SQL_Database();
 
-        public string _ConnectionString { get; private set; }
-        public string _UserName { get; private set; }
-        public string _Password { get; private set; }
+        new public string _ConnectionString { get; private set; }
+        new public string _UserName { get; private set; }
+        new public string _Password { get; private set; }
+
+        private SqlConnection sqlConnection;
 
         public SQL_Database(String connectionString, String userName, String password)
             : base(connectionString, userName, password)
@@ -22,6 +25,8 @@ namespace IAViewer.DB
             this._ConnectionString = connectionString;
             this._UserName = userName;
             this._Password = password;
+
+            CreateConnection();
         }
 
         public SQL_Database()
@@ -30,11 +35,37 @@ namespace IAViewer.DB
             _ConnectionString = dbConfig.ConnectionString;
             _UserName = dbConfig.UserName;
             _Password = dbConfig.Password;
+
+            CreateConnection();
+        }
+
+        private void CreateConnection()
+        {
+            sqlConnection = new SqlConnection(_ConnectionString);
+            sqlConnection.Open();
         }
 
         public void CloseConnection()
         {
-            
+            sqlConnection.Close();
+        }
+
+        public void ExecuteNonQuery(String command)
+        {
+            SqlCommand sqlCommand = new SqlCommand();
+            sqlCommand.Connection = sqlConnection;
+            sqlCommand.CommandText = command;
+            sqlCommand.ExecuteNonQuery();
+        }
+
+        public SqlDataReader ExecuteQuery(String command)
+        {
+            SqlDataReader sqlDataReader = null;
+            SqlCommand sqlCommand = new SqlCommand();
+            sqlCommand.Connection = sqlConnection;
+            sqlCommand.CommandText = command;
+            sqlDataReader = sqlCommand.ExecuteReader();
+            return sqlDataReader;
         }
 
         public static void Register()

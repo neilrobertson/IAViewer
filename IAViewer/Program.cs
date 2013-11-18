@@ -18,10 +18,20 @@ namespace IAViewer
             //Application.EnableVisualStyles();
             //Application.SetCompatibleTextRenderingDefault(false);
             //Application.Run(new Form1());
-            Console.WriteLine("Program initialized!");
+            //TruncateDatabase();
             Controller.GetInstance().RunWebCrawler("http://www.apple.com", null);
             Console.WriteLine("Program Complete! Hit Enter!");
             Console.ReadLine();
+        }
+
+        public static void TruncateDatabase()
+        {
+            DBConfiguration dbConfig = DBConfiguration.GetDBConfiguration();
+            dbConfig = DBConfigurationSectionHandler.LoadFromXml().Convert();
+            IDatabase database = DBFactory.GetDatabase(dbConfig.DatabaseType);
+            String command = "TRUNCATE TABLE CrawledPage; TRUNCATE TABLE PageContent; TRUNCATE TABLE Project";
+            database.ExecuteNonQuery(command);
+            database.CloseConnection();
         }
     }
 }

@@ -18,6 +18,8 @@ namespace IAViewer
 
         protected DBConnectionPool _databaseConnectionPool;
 
+        protected String projectID;
+
         private Controller()
         {
 
@@ -39,8 +41,7 @@ namespace IAViewer
                 throw new ArgumentNullException();
 
             Uri uri = new Uri(rootURI);
-
-
+            
             CrawlConfiguration crawlConfig = AbotConfigurationSectionHandler.LoadFromXml().Convert();
             crawlConfig.CrawlTimeoutSeconds = 100;
             crawlConfig.MaxConcurrentThreads = 10;
@@ -62,6 +63,8 @@ namespace IAViewer
             Func<IDatabase> databaseGenerator = database.GetDatabaseGenerator();
             _databaseConnectionPool = new DBConnectionPool(databaseGenerator);
 
+            CreateProject(rootURI);
+
             if (uriContains != null)
             {
                 foreach (String uriContent in uriContains)
@@ -81,6 +84,25 @@ namespace IAViewer
             _databaseConnectionPool = null;
         }
 
+        private void CreateProject(String rootURI)
+        {
+            projectID = System.Guid.NewGuid().ToString();
+            IDatabase database = _databaseConnectionPool.GetObject();
+            try
+            {
+                String command = "INSERT INTO Project (ProjectID, RootURL) VALUES ('" + projectID + "', '" + rootURI + "');";
+                database.ExecuteNonQuery(command);
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception.ToString());
+            }
+            finally
+            {
+                _databaseConnectionPool.PutObject(database);
+            }
+        }
+
         private void crawler_ProcessPageCrawlStarting(object sender, PageCrawlStartingArgs e)
         {
             PageToCrawl pageToCrawl = e.PageToCrawl;
@@ -92,16 +114,30 @@ namespace IAViewer
             CrawledPage crawledPage = e.CrawledPage;
 
             if (crawledPage.WebException != null || crawledPage.HttpWebResponse.StatusCode != HttpStatusCode.OK)
-                Console.WriteLine("Crawl of page failed {0}", crawledPage.Uri.AbsoluteUri);
+                Console.WriteLine("Crawl of page failed {0} StatusCode: [{1}]", crawledPage.Uri.AbsoluteUri, crawledPage.StatusCode);
             else
             {
-                Console.WriteLine("Crawl of page succeeded {0}", crawledPage.Uri.AbsoluteUri);
+                Console.WriteLine("Crawl of page succeeded {0} StatusCode: [{1}]", crawledPage.Uri.AbsoluteUri, crawledPage.StatusCode);
                 IDatabase database = _databaseConnectionPool.GetObject();
-                
-                _databaseConnectionPool.PutObject(database);
+                try
+                {
+                    String command = "INSERT INTO CrawledPage (PageGUID, ProjectGUID, URL, StatusCode, PageSize, HttpResponse) VALUES ('" + crawledPage.PageGUID + "', '" + projectID + "', '" + crawledPage.Uri.AbsoluteUri + "', '" + crawledPage.StatusCode + "', '" + crawledPage.PageSizeInBytes + "', '" + crawledPage.HttpWebResponse + "');";
+                    database.ExecuteNonQuery(command);
+                    if (string.IsNullOrEmpty(crawledPage.RawContent) == false)
+                    {
+                        String contentCommand = "INSERT INTO PageContent (PageGUID, URL, ProjectGUID, Content) VALUES ('" + crawledPage.PageGUID + "', '" + crawledPage.Uri.AbsoluteUri + "', '" + projectID +  "', '" + crawledPage.RawContent + "');";
+                        //database.ExecuteNonQuery(contentCommand);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine(exception.ToString());
+                }
+                finally
+                {
+                    _databaseConnectionPool.PutObject(database);
+                }
             }
-            if (string.IsNullOrEmpty(crawledPage.RawContent))
-                Console.WriteLine("Page had no content {0}", crawledPage.Uri.AbsoluteUri);
         }
 
         private void crawler_PageLinksCrawlDisallowed(object sender, PageLinksCrawlDisallowedArgs e)

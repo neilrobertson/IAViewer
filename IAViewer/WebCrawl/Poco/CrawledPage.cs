@@ -19,6 +19,7 @@ namespace IAViewer.WebCrawl.Poco
             RawContent = "";
             _htmlDocument = new Lazy<HtmlDocument>(() => InitializeHtmlAgilityPackDocument());
             _csQueryDocument = new Lazy<CQ>(() => InitializeCsQueryDocument());
+            PageGUID = Guid.NewGuid().ToString();
         }
 
         /// <summary>
@@ -29,7 +30,12 @@ namespace IAViewer.WebCrawl.Poco
         /// <summary>
         /// The status code of the request
         /// </summary>
-        public int StatusCode { get { return (int) HttpWebResponse.StatusCode; } }
+        public int StatusCode { get { if (HttpWebResponse != null) return (int)HttpWebResponse.StatusCode; else return 0; } }
+        
+        /// <summary>
+        /// The unique GUID for this page   
+        /// </summary>
+        public string PageGUID { get; private set; }
 
         /// <summary>
         /// Lazy loaded Html Agility Pack (http://htmlagilitypack.codeplex.com/) document that can be used to retrieve/modify html elements on the crawled page.

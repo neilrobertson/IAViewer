@@ -28,7 +28,6 @@ namespace IAViewer.DB
         public void PutObject(IDatabase item)
         {
             _databaseCollection.Add(item);
-            Console.WriteLine(_databaseCollection.Count);
         }
 
         public void CloseAllConnections()
