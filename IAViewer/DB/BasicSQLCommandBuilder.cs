@@ -13,15 +13,7 @@ namespace IAViewer.DB
         public static String BasicSQLInsert(String table, Dictionary<String,String> param)
         {
             StringBuilder insertBuilder = new StringBuilder();
-            insertBuilder.Append("INSERT INTO ");
-            insertBuilder.Append(table);
-            insertBuilder.Append(" (");
-            foreach (var x in param.Keys)
-            {
-
-            }
-
-
+            
             return insertBuilder.ToString();
         }
     }

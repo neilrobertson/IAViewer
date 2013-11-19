@@ -62,9 +62,6 @@
     <Reference Include="CsQuery">
       <HintPath>ExternalLib\CsQuery.dll</HintPath>
     </Reference>
-    <Reference Include="EntityFramework">
-      <HintPath>..\packages\EntityFramework.5.0.0\lib\net40\EntityFramework.dll</HintPath>
-    </Reference>
     <Reference Include="HtmlAgilityPack">
       <HintPath>ExternalLib\HtmlAgilityPack.dll</HintPath>
     </Reference>

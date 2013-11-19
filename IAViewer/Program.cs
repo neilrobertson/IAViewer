@@ -18,10 +18,12 @@ namespace IAViewer
             //Application.EnableVisualStyles();
             //Application.SetCompatibleTextRenderingDefault(false);
             //Application.Run(new Form1());
-            //TruncateDatabase();
-            Controller.GetInstance().RunWebCrawler("http://www.apple.com", null);
+            TruncateDatabase();
+            String rootURL = "http://www.apple.com";
+            String[] uriContents = {"apple.com"};
+            Controller.GetInstance().RunWebCrawler(rootURL, uriContents);
             Console.WriteLine("Program Complete! Hit Enter!");
-            Console.ReadLine();
+            Console.Read();
         }
 
         public static void TruncateDatabase()
@@ -29,7 +31,7 @@ namespace IAViewer
             DBConfiguration dbConfig = DBConfiguration.GetDBConfiguration();
             dbConfig = DBConfigurationSectionHandler.LoadFromXml().Convert();
             IDatabase database = DBFactory.GetDatabase(dbConfig.DatabaseType);
-            String command = "TRUNCATE TABLE CrawledPage; TRUNCATE TABLE PageContent; TRUNCATE TABLE Project";
+            String command = "DELETE FROM dbo.CrawledPage; DELETE FROM dbo.PageContent; DELETE FROM dbo.Project";
             database.ExecuteNonQuery(command);
             database.CloseConnection();
         }

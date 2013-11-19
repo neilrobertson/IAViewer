@@ -58,6 +58,19 @@ namespace IAViewer.DB
             sqlCommand.ExecuteNonQuery();
         }
 
+        public void ExecuteNonQueryWithParameters(String command, Dictionary<String, Object> parameters)
+        {
+            SqlCommand sqlCommand = new SqlCommand();
+            sqlCommand.Connection = sqlConnection;
+            sqlCommand.CommandText = command;
+
+            foreach (var key in parameters.Keys)
+            {
+                sqlCommand.Parameters.AddWithValue(key, parameters[key]);
+            }
+            sqlCommand.ExecuteNonQuery();
+        }
+
         public SqlDataReader ExecuteQuery(String command)
         {
             SqlDataReader sqlDataReader = null;

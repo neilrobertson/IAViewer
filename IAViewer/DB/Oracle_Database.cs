@@ -43,6 +43,11 @@ namespace IAViewer.DB
 
         }
 
+        public void ExecuteNonQueryWithParameters(String command, Dictionary<String, Object> parameters)
+        {
+            
+        }
+
         public SqlDataReader ExecuteQuery(String command)
         {
 

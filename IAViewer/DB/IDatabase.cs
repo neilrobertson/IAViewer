@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data.SqlClient;
 using System.Text;
+using System.Collections.Generic;
 
 namespace IAViewer.DB
 {
@@ -12,6 +13,7 @@ namespace IAViewer.DB
         string _UserName { get; }
         string _Password { get; }
         void ExecuteNonQuery(String command);
+        void ExecuteNonQueryWithParameters(String command, Dictionary<String, Object> parameters);
         SqlDataReader ExecuteQuery(String command);
     }
 }

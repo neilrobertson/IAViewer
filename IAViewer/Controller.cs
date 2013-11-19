@@ -69,7 +69,14 @@ namespace IAViewer
             {
                 foreach (String uriContent in uriContains)
                 {
-
+                    //webCrawler.ShouldCrawlPage((pageToCrawl, crawlContext) =>
+                    //{
+                    //    CrawlDecision decision = new CrawlDecision();
+                    //    if (pageToCrawl.Uri.Authority == uriContent)
+                    //        return new CrawlDecision { Allow = true, Reason = "Include all uri parts" };
+                    //
+                    //    return decision;
+                    //});
                 }
             }
 
@@ -106,7 +113,7 @@ namespace IAViewer
         private void crawler_ProcessPageCrawlStarting(object sender, PageCrawlStartingArgs e)
         {
             PageToCrawl pageToCrawl = e.PageToCrawl;
-            Console.WriteLine("About to crawl link {0} which was found on page {1}", pageToCrawl.Uri.AbsoluteUri, pageToCrawl.ParentUri.AbsoluteUri);
+            //Console.WriteLine("About to crawl link {0} which was found on page {1}", pageToCrawl.Uri.AbsoluteUri, pageToCrawl.ParentUri.AbsoluteUri);
         }
 
         private void crawler_ProcessPageCrawlCompleted(object sender, PageCrawlCompletedArgs e)
@@ -117,16 +124,33 @@ namespace IAViewer
                 Console.WriteLine("Crawl of page failed {0} StatusCode: [{1}]", crawledPage.Uri.AbsoluteUri, crawledPage.StatusCode);
             else
             {
-                Console.WriteLine("Crawl of page succeeded {0} StatusCode: [{1}]", crawledPage.Uri.AbsoluteUri, crawledPage.StatusCode);
                 IDatabase database = _databaseConnectionPool.GetObject();
                 try
                 {
-                    String command = "INSERT INTO CrawledPage (PageGUID, ProjectGUID, URL, StatusCode, PageSize, HttpResponse) VALUES ('" + crawledPage.PageGUID + "', '" + projectID + "', '" + crawledPage.Uri.AbsoluteUri + "', '" + crawledPage.StatusCode + "', '" + crawledPage.PageSizeInBytes + "', '" + crawledPage.HttpWebResponse + "');";
-                    database.ExecuteNonQuery(command);
+                    String command = "INSERT INTO [CrawledPage] ([PageGUID], [ProjectGUID], [URL], [StatusCode], [PageSize], [HttpResponse], [CrawlDepth], [ParentURI]) VALUES (@PageGUID, @ProjectGUID, @URL, @StatusCode, @PageSize, @HttpResponse, @CrawlDepth, @ParentURI);";
+
+                    Dictionary<String, Object> parameters = new Dictionary<String, Object>();
+                    parameters.Add("@PageGUID", crawledPage.PageGUID);
+                    parameters.Add("@ProjectGUID", projectID);
+                    parameters.Add("@URL", crawledPage.Uri.AbsoluteUri);
+                    parameters.Add("@StatusCode", crawledPage.StatusCode);
+                    parameters.Add("@PageSize", crawledPage.PageSizeInBytes);
+                    parameters.Add("@HttpResponse", crawledPage.HttpWebResponse.Headers.ToString());
+                    parameters.Add("@CrawlDepth", crawledPage.CrawlDepth);
+                    parameters.Add("@ParentURI", crawledPage.ParentUri.AbsoluteUri);
+
+                    database.ExecuteNonQueryWithParameters(command, parameters);
+                    
                     if (string.IsNullOrEmpty(crawledPage.RawContent) == false)
                     {
-                        String contentCommand = "INSERT INTO PageContent (PageGUID, URL, ProjectGUID, Content) VALUES ('" + crawledPage.PageGUID + "', '" + crawledPage.Uri.AbsoluteUri + "', '" + projectID +  "', '" + crawledPage.RawContent + "');";
-                        //database.ExecuteNonQuery(contentCommand);
+                        String contentCommand = "INSERT INTO [PageContent] ([PageGUID], [ProjectGUID], [URL], [RawContent]) VALUES (@pageGUID, @projectGUID, @url, @rawContent);";
+                        Dictionary<String, Object> contentParams = new Dictionary<String, Object>();
+                        contentParams.Add("@pageGUID", crawledPage.PageGUID);
+                        contentParams.Add("@projectGUID", projectID);
+                        contentParams.Add("@url", crawledPage.Uri.AbsoluteUri);
+                        contentParams.Add("@rawContent", crawledPage.RawContent);
+                        
+                        database.ExecuteNonQueryWithParameters(contentCommand, contentParams);
                     }
                 }
                 catch (Exception exception)
@@ -138,6 +162,7 @@ namespace IAViewer
                     _databaseConnectionPool.PutObject(database);
                 }
             }
+            Console.WriteLine("Crawl of page succeeded {0} StatusCode: [{1}]", crawledPage.Uri.AbsoluteUri, crawledPage.StatusCode);
         }
 
         private void crawler_PageLinksCrawlDisallowed(object sender, PageLinksCrawlDisallowedArgs e)
