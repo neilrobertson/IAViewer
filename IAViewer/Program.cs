@@ -31,9 +31,10 @@ namespace IAViewer
             DBConfiguration dbConfig = DBConfiguration.GetDBConfiguration();
             dbConfig = DBConfigurationSectionHandler.LoadFromXml().Convert();
             IDatabase database = DBFactory.GetDatabase(dbConfig.DatabaseType);
-            String command = "DELETE FROM dbo.CrawledPage; DELETE FROM dbo.PageContent; DELETE FROM dbo.Project";
+            String command = "DELETE FROM [CrawledPage]; DELETE FROM [PageContent]; DELETE FROM [Projects]";
             database.ExecuteNonQuery(command);
             database.CloseConnection();
         }
+
     }
 }

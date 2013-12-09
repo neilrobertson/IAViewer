@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using IAViewer.WebCrawl.Core;
 using IAViewer.WebCrawl.Crawler;
 using IAViewer.WebCrawl.Poco;
 using System.Net;
 using log4net.Config;
 using IAViewer.DB;
+using log4net;
 
 namespace IAViewer
 {
@@ -18,12 +20,16 @@ namespace IAViewer
 
         protected DBConnectionPool _databaseConnectionPool;
 
-        protected String projectID;
+        protected string _projectGUID;
+        static ILog _logger = LogManager.GetLogger(typeof(Controller).FullName);
 
         private Controller()
         {
 
         }
+
+
+
 
         public static Controller GetInstance()
         {
@@ -35,7 +41,10 @@ namespace IAViewer
             }
         }
 
-        public void RunWebCrawler(String rootURI, String[] uriContains)
+
+
+
+        public void RunWebCrawler(string rootURI, string[] uriContains)
         {
             if (rootURI == null || rootURI == "")
                 throw new ArgumentNullException();
@@ -63,17 +72,19 @@ namespace IAViewer
             Func<IDatabase> databaseGenerator = database.GetDatabaseGenerator();
             _databaseConnectionPool = new DBConnectionPool(databaseGenerator);
 
-            CreateProject(rootURI);
+            string userGUID = Guid.NewGuid().ToString();
+            CreateProject(rootURI, userGUID);
 
             if (uriContains != null)
             {
-                foreach (String uriContent in uriContains)
+                foreach (string uriContent in uriContains)
                 {
                     //webCrawler.ShouldCrawlPage((pageToCrawl, crawlContext) =>
                     //{
                     //    CrawlDecision decision = new CrawlDecision();
-                    //    if (pageToCrawl.Uri.Authority == uriContent)
-                    //        return new CrawlDecision { Allow = true, Reason = "Include all uri parts" };
+                    //    Match match = Regex.Match(pageToCrawl.Uri.ToString(), uriContent, RegexOptions.IgnoreCase);
+                    //    if (!match.Success)
+                    //        return new CrawlDecision { Allow = false, Reason = "Include all uri parts" };
                     //
                     //    return decision;
                     //});
@@ -91,18 +102,27 @@ namespace IAViewer
             _databaseConnectionPool = null;
         }
 
-        private void CreateProject(String rootURI)
-        {
-            projectID = System.Guid.NewGuid().ToString();
+
+
+
+        private void CreateProject(string rootURI, string userGUID)
+        { 
+            _projectGUID = System.Guid.NewGuid().ToString();
             IDatabase database = _databaseConnectionPool.GetObject();
             try
             {
-                String command = "INSERT INTO Project (ProjectID, RootURL) VALUES ('" + projectID + "', '" + rootURI + "');";
-                database.ExecuteNonQuery(command);
+                string command = "INSERT INTO [Projects] (projectGUID, userGUID, rootURL) VALUES (@projectGUID, @userGUID, @rootURL);";
+                Dictionary<string, object> parameters = new Dictionary<string, object>();
+                parameters.Add("@projectGUID", _projectGUID);
+                parameters.Add("@userGUID", userGUID);
+                parameters.Add("@rootURL", rootURI);
+                database.ExecuteNonQueryWithParameters(command, parameters);
             }
             catch (Exception exception)
             {
-                Console.WriteLine(exception.ToString());
+                Console.WriteLine(exception.ToString()); 
+                _logger.Error("An unhandled exception was thrown inserting project details to DB");
+                _logger.Error(exception);
             }
             finally
             {
@@ -110,28 +130,34 @@ namespace IAViewer
             }
         }
 
+
+
+
         private void crawler_ProcessPageCrawlStarting(object sender, PageCrawlStartingArgs e)
         {
             PageToCrawl pageToCrawl = e.PageToCrawl;
-            //Console.WriteLine("About to crawl link {0} which was found on page {1}", pageToCrawl.Uri.AbsoluteUri, pageToCrawl.ParentUri.AbsoluteUri);
+            _logger.InfoFormat("About to crawl link {0} which was found on page {1}", pageToCrawl.Uri.AbsoluteUri, pageToCrawl.ParentUri.AbsoluteUri);
         }
+
+
+
 
         private void crawler_ProcessPageCrawlCompleted(object sender, PageCrawlCompletedArgs e)
         {
             CrawledPage crawledPage = e.CrawledPage;
 
             if (crawledPage.WebException != null || crawledPage.HttpWebResponse.StatusCode != HttpStatusCode.OK)
-                Console.WriteLine("Crawl of page failed {0} StatusCode: [{1}]", crawledPage.Uri.AbsoluteUri, crawledPage.StatusCode);
+                _logger.Error(String.Format("Crawl of page failed {0} StatusCode: [{1}]", crawledPage.Uri.AbsoluteUri, crawledPage.StatusCode));
             else
             {
                 IDatabase database = _databaseConnectionPool.GetObject();
                 try
                 {
-                    String command = "INSERT INTO [CrawledPage] ([PageGUID], [ProjectGUID], [URL], [StatusCode], [PageSize], [HttpResponse], [CrawlDepth], [ParentURI]) VALUES (@PageGUID, @ProjectGUID, @URL, @StatusCode, @PageSize, @HttpResponse, @CrawlDepth, @ParentURI);";
+                    string command = "INSERT INTO [CrawledPage] ([PageGUID], [ProjectGUID], [URL], [StatusCode], [PageSize], [HttpResponse], [CrawlDepth], [ParentURI]) VALUES (@PageGUID, @ProjectGUID, @URL, @StatusCode, @PageSize, @HttpResponse, @CrawlDepth, @ParentURI);";
 
-                    Dictionary<String, Object> parameters = new Dictionary<String, Object>();
+                    Dictionary<string, object> parameters = new Dictionary<string, object>();
                     parameters.Add("@PageGUID", crawledPage.PageGUID);
-                    parameters.Add("@ProjectGUID", projectID);
+                    parameters.Add("@ProjectGUID", _projectGUID);
                     parameters.Add("@URL", crawledPage.Uri.AbsoluteUri);
                     parameters.Add("@StatusCode", crawledPage.StatusCode);
                     parameters.Add("@PageSize", crawledPage.PageSizeInBytes);
@@ -143,10 +169,10 @@ namespace IAViewer
                     
                     if (string.IsNullOrEmpty(crawledPage.RawContent) == false)
                     {
-                        String contentCommand = "INSERT INTO [PageContent] ([PageGUID], [ProjectGUID], [URL], [RawContent]) VALUES (@pageGUID, @projectGUID, @url, @rawContent);";
-                        Dictionary<String, Object> contentParams = new Dictionary<String, Object>();
+                        string contentCommand = "INSERT INTO [PageContent] ([PageGUID], [ProjectGUID], [URL], [RawContent]) VALUES (@pageGUID, @projectGUID, @url, @rawContent);";
+                        Dictionary<string, object> contentParams = new Dictionary<string, object>();
                         contentParams.Add("@pageGUID", crawledPage.PageGUID);
-                        contentParams.Add("@projectGUID", projectID);
+                        contentParams.Add("@projectGUID", _projectGUID);
                         contentParams.Add("@url", crawledPage.Uri.AbsoluteUri);
                         contentParams.Add("@rawContent", crawledPage.RawContent);
                         
@@ -156,6 +182,8 @@ namespace IAViewer
                 catch (Exception exception)
                 {
                     Console.WriteLine(exception.ToString());
+                    _logger.Error("An unhandled exception was thrown inserting crawled page details/content to DB");
+                    _logger.Error(exception);
                 }
                 finally
                 {
@@ -165,11 +193,17 @@ namespace IAViewer
             Console.WriteLine("Crawl of page succeeded {0} StatusCode: [{1}]", crawledPage.Uri.AbsoluteUri, crawledPage.StatusCode);
         }
 
+
+
+
         private void crawler_PageLinksCrawlDisallowed(object sender, PageLinksCrawlDisallowedArgs e)
         {
             CrawledPage crawledPage = e.CrawledPage;
             Console.WriteLine("Did not crawl the links on page {0} due to {1}", crawledPage.Uri.AbsoluteUri, e.DisallowedReason);
         }
+
+
+
 
         private void crawler_PageCrawlDisallowed(object sender, PageCrawlDisallowedArgs e)
         {
